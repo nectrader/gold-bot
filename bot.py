@@ -2,8 +2,9 @@ import requests
 import time
 from datetime import datetime
 
-TD_KEY = "4a829743b0b747438caf84d0a0b24c08"
-TG_TOKEN = "8838875779:AAF-aOqavtRj5lZr9BdrNR0AZoP_X4KmB8w"
+import os
+TD_KEY = os.environ["TD_KEY"]
+TG_TOKEN = os.environ["TG_TOKEN"]
 TG_CHAT = "1302678674"
 
 last_signal = ""
