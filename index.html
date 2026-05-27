@@ -301,11 +301,19 @@ function App(){
   },[apiKey,selectedPair,sendTelegram]);
 
   var startWS=useCallback(function(key,sym){
-    if(wsRef.current)wsRef.current.close();
+    if(wsRef.current){wsRef.current.close();wsRef.current=null;}
     var ws=new WebSocket("wss://ws.twelvedata.com/v1/quotes/price?apikey="+key);
     ws.onopen=function(){ws.send(JSON.stringify({action:"subscribe",params:{symbols:sym}}));};
-    ws.onmessage=function(e){try{var d=JSON.parse(e.data);if(d.event==="price"&&d.price){const newPrice=parseFloat(d.price);if(!isNaN(newPrice)&&newPrice>1000&&newPrice<10000){setPrice(newPrice);setLastUpdate(new Date().toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit",second:"2-digit"}));}}}catch(err){}};
-    ws.onclose=function(){setTimeout(function(){startWS(key,sym);},5000);};
+    ws.onmessage=function(e){
+      try{
+        var d=JSON.parse(e.data);
+        if(d.event==="price"&&d.symbol===sym&&d.price){
+          setPrice(parseFloat(d.price));
+          setLastUpdate(new Date().toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit",second:"2-digit"}));
+        }
+      }catch(err){}
+    };
+    ws.onclose=function(){setTimeout(function(){if(wsRef.current===ws)startWS(key,sym);},5000);};
     wsRef.current=ws;
   },[]);
 
