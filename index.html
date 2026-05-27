@@ -51,25 +51,16 @@ const PAIRS=[
   {symbol:"NZD/USD",label:"NZD/USD",emoji:"🇳🇿",cat:"Majeurs"},
   {symbol:"EUR/JPY",label:"EUR/JPY",emoji:"🇯🇵",cat:"Croisées"},
   {symbol:"EUR/GBP",label:"EUR/GBP",emoji:"🇬🇧",cat:"Croisées"},
+  {symbol:"GBP/JPY",label:"GBP/JPY",emoji:"🇯🇵",cat:"Croisées"},
+  {symbol:"AUD/JPY",label:"AUD/JPY",emoji:"🇯🇵",cat:"Croisées"},
+  {symbol:"CAD/JPY",label:"CAD/JPY",emoji:"🇯🇵",cat:"Croisées"},
+  {symbol:"NZD/JPY",label:"NZD/JPY",emoji:"🇯🇵",cat:"Croisées"},
   {symbol:"EUR/AUD",label:"EUR/AUD",emoji:"🇦🇺",cat:"Croisées"},
   {symbol:"EUR/CAD",label:"EUR/CAD",emoji:"🇨🇦",cat:"Croisées"},
-  {symbol:"EUR/CHF",label:"EUR/CHF",emoji:"🇨🇭",cat:"Croisées"},
-  {symbol:"EUR/NZD",label:"EUR/NZD",emoji:"🇳🇿",cat:"Croisées"},
-  {symbol:"GBP/JPY",label:"GBP/JPY",emoji:"🇯🇵",cat:"Croisées"},
   {symbol:"GBP/AUD",label:"GBP/AUD",emoji:"🇦🇺",cat:"Croisées"},
   {symbol:"GBP/CAD",label:"GBP/CAD",emoji:"🇨🇦",cat:"Croisées"},
-  {symbol:"GBP/CHF",label:"GBP/CHF",emoji:"🇨🇭",cat:"Croisées"},
-  {symbol:"GBP/NZD",label:"GBP/NZD",emoji:"🇳🇿",cat:"Croisées"},
-  {symbol:"AUD/JPY",label:"AUD/JPY",emoji:"🇯🇵",cat:"Croisées"},
   {symbol:"AUD/CAD",label:"AUD/CAD",emoji:"🇨🇦",cat:"Croisées"},
-  {symbol:"AUD/CHF",label:"AUD/CHF",emoji:"🇨🇭",cat:"Croisées"},
   {symbol:"AUD/NZD",label:"AUD/NZD",emoji:"🇳🇿",cat:"Croisées"},
-  {symbol:"CAD/JPY",label:"CAD/JPY",emoji:"🇯🇵",cat:"Croisées"},
-  {symbol:"CAD/CHF",label:"CAD/CHF",emoji:"🇨🇭",cat:"Croisées"},
-  {symbol:"CHF/JPY",label:"CHF/JPY",emoji:"🇯🇵",cat:"Croisées"},
-  {symbol:"NZD/JPY",label:"NZD/JPY",emoji:"🇯🇵",cat:"Croisées"},
-  {symbol:"NZD/CAD",label:"NZD/CAD",emoji:"🇨🇦",cat:"Croisées"},
-  {symbol:"NZD/CHF",label:"NZD/CHF",emoji:"🇨🇭",cat:"Croisées"},
 ];
 const CATS=["Métaux","Crypto","Majeurs","Croisées"];
 
@@ -105,6 +96,12 @@ function getPipSize(symbol){
   return 0.0001;
 }
 
+function getPipDecimals(symbol){
+  if(symbol.includes("XAU")||symbol.includes("BTC"))return 0;
+  if(symbol.includes("JPY"))return 2;
+  return 5;
+}
+
 function buildPlan(price,atr,signal,tfSignals,symbol,srLevels){
   if(!signal||signal.direction==="neutral")return null;
   var isBuy=signal.direction==="buy";
@@ -112,9 +109,12 @@ function buildPlan(price,atr,signal,tfSignals,symbol,srLevels){
   var agree=tfs.filter(function(t){return tfSignals[t]&&(isBuy?tfSignals[t].score>=6:tfSignals[t].score<=4);}).length;
   if(agree<3)return null;
   var pip=getPipSize(symbol);
+  var dp=getPipDecimals(symbol);
+  // ATR en pips avec minimum garanti
   var atrPips=Math.round(atr/pip);
-  var slPips=Math.max(80,Math.min(150,Math.round(atrPips*0.8)));
-  var dp=symbol.includes("BTC")?0:symbol.includes("XAU")?0:symbol.includes("JPY")?2:5;
+  var minPips=symbol.includes("XAU")?100:symbol.includes("BTC")?500:40;
+  var maxPips=symbol.includes("XAU")?120:symbol.includes("BTC")?2000:50;
+  var slPips=Math.max(minPips,Math.min(maxPips,Math.round(atrPips*0.8)));
   var entry=symbol.includes("XAU")||symbol.includes("BTC")?Math.round(price):parseFloat(price.toFixed(dp));
   var sl=isBuy?entry-slPips*pip:entry+slPips*pip;
   var targets=[];
@@ -133,6 +133,10 @@ function buildPlan(price,atr,signal,tfSignals,symbol,srLevels){
   var tp1Pips=Math.round(Math.abs(tp1-entry)/pip);
   var tp2Pips=Math.round(Math.abs(tp2-entry)/pip);
   var tp3Pips=Math.round(Math.abs(tp3-entry)/pip);
+  // S'assurer que les pips sont cohérents
+  if(tp1Pips<minPips){tp1=isBuy?entry+slPips*pip:entry-slPips*pip;tp1Pips=slPips;}
+  if(tp2Pips<tp1Pips){tp2=isBuy?entry+slPips*pip*2.8:entry-slPips*pip*2.8;tp2Pips=Math.round(slPips*2.8);}
+  if(tp3Pips<tp2Pips){tp3=isBuy?entry+slPips*pip*5.8:entry-slPips*pip*5.8;tp3Pips=Math.round(slPips*5.8);}
   var rr=Math.round(tp3Pips/slPips);
   return{isBuy:isBuy,symbol:symbol,entry:entry.toFixed(dp),sl:sl.toFixed(dp),tp1:tp1.toFixed(dp),tp2:tp2.toFixed(dp),tp3:tp3.toFixed(dp),slPts:slPips,tp1Pts:tp1Pips,tp2Pts:tp2Pips,tp3Pts:tp3Pips,rr1:(tp1Pips/slPips).toFixed(1),rr2:(tp2Pips/slPips).toFixed(1),rr3:rr,agree:agree};
 }
