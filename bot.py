@@ -156,4 +156,4 @@ while True:
         run()
     except Exception as e:
         print("Erreur: " + str(e))
-    time.sleep(
+    time.sleep(180)
