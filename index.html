@@ -78,7 +78,9 @@ function calcStoch(c){var r=calcRSI(c,14),raw=[];for(var i=13;i<r.length;i++){va
 function calcATR(h,l,c,p){p=p||14;var tr=[];for(var i=1;i<c.length;i++)tr.push(Math.max(h[i]-l[i],Math.abs(h[i]-c[i-1]),Math.abs(l[i]-c[i-1])));var a=tr.slice(0,p).reduce(function(x,y){return x+y;},0)/p;for(var i=p;i<tr.length;i++)a=(a*(p-1)+tr[i])/p;return a;}
 function findSwing(h,l,n){n=n||20;var sh=h[h.length-n],sl=l[l.length-n];for(var i=h.length-n;i<h.length;i++){if(h[i]>sh)sh=h[i];if(l[i]<sl)sl=l[i];}return{high:sh,low:sl};}
 function getPip(s){return s.indexOf("XAU")>=0?0.10:s.indexOf("BTC")>=0?1:s.indexOf("JPY")>=0?0.01:0.0001;}
-function getDP(s){return s.indexOf("XAU")>=0||s.indexOf("BTC")>=0?0:s.indexOf("JPY")>=0?2:5;}
+function getDP(s){return s.indexOf("BTC")>=0?0:s.indexOf("XAU")>=0?2:s.indexOf("JPY")>=0?3:5;}
+function distToPips(dist,sym){return Math.round(Math.abs(dist)/getPip(sym));}
+function pipsToDist(pips,sym){return pips*getPip(sym);}
 function fmtPrice(v,s){if(!v)return "--";var d=getDP(s);return v.toFixed(d).replace(/\B(?=(\d{3})+(?!\d))/g," ");}
 
 function computeSig(price,cls,hhs,lls){
@@ -100,28 +102,44 @@ function computeSig(price,cls,hhs,lls){
 
 function buildPlan(price,atrVal,sig,sym){
   if(sig.dir==="neutral")return null;
-  var p=getPip(sym),d=getDP(sym),buy=sig.buy;
+  var d=getDP(sym),buy=sig.buy;
   var sw=sig.swing,rng=sw.high-sw.low;
   var entry=parseFloat(price.toFixed(d));
+
+  // ── Stop Loss basé sur Fibonacci + ATR ──
   var f382=buy?sw.low+rng*0.382:sw.high-rng*0.382;
   var f618=buy?sw.low+rng*0.618:sw.high-rng*0.618;
   var slBase=buy?Math.min(f382,f618)-atrVal*0.2:Math.max(f382,f618)+atrVal*0.2;
   var sl=parseFloat(slBase.toFixed(d));
-  var slP=Math.round(Math.abs(entry-sl)/p);
-  var minSl=sym.indexOf("XAU")>=0?80:sym.indexOf("BTC")>=0?500:25;
-  var maxSl=sym.indexOf("XAU")>=0?150:sym.indexOf("BTC")>=0?2000:60;
-  if(slP<minSl){slP=minSl;sl=parseFloat((buy?entry-slP*p:entry+slP*p).toFixed(d));}
-  if(slP>maxSl){slP=maxSl;sl=parseFloat((buy?entry-slP*p:entry+slP*p).toFixed(d));}
+
+  // Pips SL = distance en dollars / taille d'un pip
+  var slP=distToPips(Math.abs(entry-sl),sym);
+
+  // Limites min/max pips SL selon l'actif
+  var minSlP=sym.indexOf("XAU")>=0?80:sym.indexOf("BTC")>=0?500:25;
+  var maxSlP=sym.indexOf("XAU")>=0?300:sym.indexOf("BTC")>=0?3000:80;
+  if(slP<minSlP){slP=minSlP;sl=parseFloat((buy?entry-pipsToDist(slP,sym):entry+pipsToDist(slP,sym)).toFixed(d));}
+  if(slP>maxSlP){slP=maxSlP;sl=parseFloat((buy?entry-pipsToDist(slP,sym):entry+pipsToDist(slP,sym)).toFixed(d));}
+
+  // ── Take Profits via extensions Fibonacci ──
   var t1=parseFloat((buy?sw.high+rng*0.272:sw.low-rng*0.272).toFixed(d));
   var t2=parseFloat((buy?sw.high+rng*0.618:sw.low-rng*0.618).toFixed(d));
   var t3=parseFloat((buy?sw.high+rng*1.618:sw.low-rng*1.618).toFixed(d));
-  var t1p=Math.round(Math.abs(t1-entry)/p);
-  var t2p=Math.round(Math.abs(t2-entry)/p);
-  var t3p=Math.round(Math.abs(t3-entry)/p);
-  if(t1p<slP){t1=parseFloat((buy?entry+slP*p:entry-slP*p).toFixed(d));t1p=slP;}
-  if(t2p<slP*2){t2=parseFloat((buy?entry+slP*p*3:entry-slP*p*3).toFixed(d));t2p=slP*3;}
-  if(t3p<slP*4){t3=parseFloat((buy?entry+slP*p*6:entry-slP*p*6).toFixed(d));t3p=slP*6;}
-  return{buy:buy,sym:sym,entry:entry.toFixed(d),sl:sl.toFixed(d),t1:t1.toFixed(d),t2:t2.toFixed(d),t3:t3.toFixed(d),slP:slP,t1p:t1p,t2p:t2p,t3p:t3p,rr1:(t1p/slP).toFixed(1),rr2:(t2p/slP).toFixed(1),rr3:Math.round(t3p/slP)};
+
+  var t1p=distToPips(Math.abs(t1-entry),sym);
+  var t2p=distToPips(Math.abs(t2-entry),sym);
+  var t3p=distToPips(Math.abs(t3-entry),sym);
+
+  // Fallback si TP trop proche du SL
+  if(t1p<slP){t1p=slP;t1=parseFloat((buy?entry+pipsToDist(t1p,sym):entry-pipsToDist(t1p,sym)).toFixed(d));}
+  if(t2p<slP*2){t2p=Math.round(slP*3);t2=parseFloat((buy?entry+pipsToDist(t2p,sym):entry-pipsToDist(t2p,sym)).toFixed(d));}
+  if(t3p<slP*4){t3p=Math.round(slP*6);t3=parseFloat((buy?entry+pipsToDist(t3p,sym):entry-pipsToDist(t3p,sym)).toFixed(d));}
+
+  var rr1=(t1p/slP).toFixed(1);
+  var rr2=(t2p/slP).toFixed(1);
+  var rr3=Math.round(t3p/slP);
+
+  return{buy:buy,sym:sym,entry:entry.toFixed(d),sl:sl.toFixed(d),t1:t1.toFixed(d),t2:t2.toFixed(d),t3:t3.toFixed(d),slP:slP,t1p:t1p,t2p:t2p,t3p:t3p,rr1:rr1,rr2:rr2,rr3:rr3};
 }
 
 function sendTG(msg){try{fetch("https://api.telegram.org/bot"+TG_TOKEN+"/sendMessage",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({chat_id:TG_CHAT,text:msg})});}catch(e){}}
