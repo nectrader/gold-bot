@@ -5,19 +5,24 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
-<meta name="apple-mobile-web-app-title" content="GoldSignals"/>
-<title>GoldSignals Sniper</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+<meta name="apple-mobile-web-app-title" content="GoldSignals PRO"/>
+<title>GoldSignals PRO</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-body{background:#0a0a0f;color:#f0f0f5;font-family:'Inter',sans-serif;overscroll-behavior:none}
+body{background:#080810;color:#f0f0f5;font-family:'Inter',sans-serif;overscroll-behavior:none}
 input{box-sizing:border-box;width:100%;font-family:'Inter',sans-serif}
 @keyframes spin{to{transform:rotate(360deg)}}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
-@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes slideIn{from{opacity:0;transform:translateX(-10px)}to{opacity:1;transform:translateX(0)}}
+@keyframes glow{0%,100%{box-shadow:0 0 20px rgba(245,166,35,0.2)}50%{box-shadow:0 0 40px rgba(245,166,35,0.5)}}
+@keyframes glowGreen{0%,100%{box-shadow:0 0 20px rgba(76,217,123,0.2)}50%{box-shadow:0 0 40px rgba(76,217,123,0.4)}}
+@keyframes glowRed{0%,100%{box-shadow:0 0 20px rgba(240,96,96,0.2)}50%{box-shadow:0 0 40px rgba(240,96,96,0.4)}}
+@keyframes ticker{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
 ::-webkit-scrollbar{display:none}
 </style>
 </head>
@@ -32,14 +37,33 @@ var useCallback=React.useCallback;
 var useRef=React.useRef;
 
 var C={
-  bg:"#0a0a0f",card:"#12121a",card2:"#1a1a24",
-  border:"#252535",
-  gold:"#f5a623",goldSoft:"rgba(245,166,35,0.12)",
-  red:"#f06060",redSoft:"rgba(240,96,96,0.1)",
-  green:"#4cd97b",greenSoft:"rgba(76,217,123,0.1)",
-  blue:"#5b9cf6",blueSoft:"rgba(91,156,246,0.1)",
-  purple:"#a78bfa",purpleSoft:"rgba(167,139,250,0.1)",
-  muted:"#4a4a62",text:"#e8e8f0",text2:"#7070a0",text3:"#4a4a6a"
+  bg:"#080810",
+  card:"#0e0e1a",
+  card2:"#141422",
+  card3:"#1a1a2e",
+  border:"#1e1e35",
+  borderGlow:"#2a2a45",
+  gold:"#f5a623",
+  goldDark:"#c47d0e",
+  goldSoft:"rgba(245,166,35,0.08)",
+  goldGlow:"rgba(245,166,35,0.15)",
+  red:"#ff4d6d",
+  redDark:"#cc2244",
+  redSoft:"rgba(255,77,109,0.08)",
+  green:"#00d4aa",
+  greenDark:"#00a882",
+  greenSoft:"rgba(0,212,170,0.08)",
+  blue:"#4d9fff",
+  blueSoft:"rgba(77,159,255,0.08)",
+  purple:"#9d4edd",
+  purpleSoft:"rgba(157,78,221,0.08)",
+  muted:"#3a3a5a",
+  text:"#e8e8f0",
+  text2:"#6a6a8a",
+  text3:"#3a3a5a",
+  gradient1:"linear-gradient(135deg,#f5a623,#ff6b35)",
+  gradient2:"linear-gradient(135deg,#00d4aa,#4d9fff)",
+  gradient3:"linear-gradient(135deg,#ff4d6d,#9d4edd)"
 };
 
 var TG_TOKEN="8838875779:AAF-aOqavtRj5lZr9BdrNR0AZoP_X4KmB8w";
@@ -71,190 +95,178 @@ function calcStoch(c){var rsi=calcRSI(c,14);var raw=[];for(var i=13;i<rsi.length
 function calcATR(h,l,c,p){p=p||14;var tr=[];for(var i=1;i<c.length;i++)tr.push(Math.max(h[i]-l[i],Math.abs(h[i]-c[i-1]),Math.abs(l[i]-c[i-1])));var atr=tr.slice(0,p).reduce(function(a,b){return a+b;},0)/p;for(var i=p;i<tr.length;i++)atr=(atr*(p-1)+tr[i])/p;return atr;}
 
 function findSwing(highs,lows,lookback){
-  lookback=lookback||20;
-  var n=highs.length;
-  var swingHigh=highs[n-lookback];
-  var swingLow=lows[n-lookback];
-  for(var i=n-lookback;i<n;i++){
-    if(highs[i]>swingHigh)swingHigh=highs[i];
-    if(lows[i]<swingLow)swingLow=lows[i];
-  }
-  return{high:swingHigh,low:swingLow};
+  lookback=lookback||20;var n=highs.length;
+  var sh=highs[n-lookback],sl=lows[n-lookback];
+  for(var i=n-lookback;i<n;i++){if(highs[i]>sh)sh=highs[i];if(lows[i]<sl)sl=lows[i];}
+  return{high:sh,low:sl};
 }
 
-function getPipSize(symbol){
-  if(symbol.indexOf("XAU")>=0)return 0.10;
-  if(symbol.indexOf("BTC")>=0)return 1;
-  if(symbol.indexOf("JPY")>=0)return 0.01;
-  return 0.0001;
-}
-function getPipDecimals(symbol){
-  if(symbol.indexOf("XAU")>=0||symbol.indexOf("BTC")>=0)return 0;
-  if(symbol.indexOf("JPY")>=0)return 2;
-  return 5;
-}
+function getPipSize(s){if(s.indexOf("XAU")>=0)return 0.10;if(s.indexOf("BTC")>=0)return 1;if(s.indexOf("JPY")>=0)return 0.01;return 0.0001;}
+function getPipDecimals(s){if(s.indexOf("XAU")>=0||s.indexOf("BTC")>=0)return 0;if(s.indexOf("JPY")>=0)return 2;return 5;}
 
 function computeSignal(price,closes,highs,lows,closes1h,closes15){
   var e20=calcEMA(closes,20);var e50=calcEMA(closes,50);
+  var rsi4h=calcRSI(closes,14);
   var rsi1h=calcRSI(closes1h||closes,14);
   var stoch15=calcStoch(closes15||closes);
   var swing=findSwing(highs,lows,20);
   var isBuy=e20[e20.length-1]>e50[e50.length-1];
   var rsi=rsi1h[rsi1h.length-1];
+  var rsi4hVal=rsi4h[rsi4h.length-1];
   var rsiOk=rsi>35&&rsi<65;
+  var momentumOk=isBuy?rsi4hVal>50:rsi4hVal<50;
   var stochOk=isBuy?(stoch15.k>stoch15.d&&stoch15.k<80):(stoch15.k<stoch15.d&&stoch15.k>20);
   var range=swing.high-swing.low;
   var fib382=isBuy?swing.low+range*0.382:swing.high-range*0.382;
+  var fib500=isBuy?swing.low+range*0.500:swing.high-range*0.500;
   var fib618=isBuy?swing.low+range*0.618:swing.high-range*0.618;
-  var nearFib=Math.abs(price-fib382)<range*0.05||Math.abs(price-fib618)<range*0.05;
-  var score=[true,rsiOk,stochOk,nearFib].filter(Boolean).length;
-  var direction=score>=3?(isBuy?"buy":"sell"):"neutral";
-  var label,color,bg,advice;
-  if(direction==="buy"){label="SNIPER BUY";color=C.green;bg=C.greenSoft;advice="Conditions sniper reunies";}
-  else if(direction==="sell"){label="SNIPER SELL";color=C.red;bg=C.redSoft;advice="Conditions sniper reunies";}
-  else{label="EN ATTENTE";color=C.gold;bg=C.goldSoft;advice="Pas encore de setup sniper";}
-  var fibData={
-    sl:isBuy?swing.low-range*0.1:swing.high+range*0.1,
-    tp1:isBuy?swing.high+range*0.272:swing.low-range*0.272,
-    tp2:isBuy?swing.high+range*0.618:swing.low-range*0.618,
-    tp3:isBuy?swing.high+range*1.618:swing.low-range*1.618,
-    r382:fib382,r618:fib618
-  };
-  return{direction:direction,label:label,color:color,bg:bg,advice:advice,score:score,
-    conditions:{rsi:rsiOk,stoch:stochOk,fib:nearFib},fib:fibData,swing:swing,isBuy:isBuy};
+  var nearFib=Math.abs(price-fib382)<range*0.06||Math.abs(price-fib500)<range*0.06||Math.abs(price-fib618)<range*0.06;
+  var conditions={trend:true,rsi:rsiOk,momentum:momentumOk,stoch:stochOk,fib:nearFib};
+  var score=Object.values(conditions).filter(Boolean).length;
+  var direction=score>=4?(isBuy?"buy":"sell"):"neutral";
+  var label,color,bg;
+  if(direction==="buy"){label="ACHAT";color=C.green;bg=C.greenSoft;}
+  else if(direction==="sell"){label="VENTE";color=C.red;bg=C.redSoft;}
+  else{label="ATTENTE";color=C.gold;bg=C.goldSoft;}
+  return{direction:direction,label:label,color:color,bg:bg,score:score,
+    conditions:conditions,isBuy:isBuy,swing:swing,
+    fib:{r382:fib382,r500:fib500,r618:fib618},
+    rsi:rsi,stoch:stoch15};
 }
 
 function buildPlan(price,atr,signal,symbol){
   if(!signal||signal.direction==="neutral")return null;
-  var pip=getPipSize(symbol);
-  var dp=getPipDecimals(symbol);
-  var isBuy=signal.isBuy;
+  var pip=getPipSize(symbol);var dp=getPipDecimals(symbol);
+  var isBuy=signal.isBuy;var swing=signal.swing;var range=swing.high-swing.low;
   var entry=parseFloat(price.toFixed(dp));
-  var sl=parseFloat(signal.fib.sl.toFixed(dp));
-  var tp1=parseFloat(signal.fib.tp1.toFixed(dp));
-  var tp2=parseFloat(signal.fib.tp2.toFixed(dp));
-  var tp3=parseFloat(signal.fib.tp3.toFixed(dp));
+  var fib236=isBuy?swing.low+range*0.236:swing.high-range*0.236;
+  var fib382=isBuy?swing.low+range*0.382:swing.high-range*0.382;
+  var fib618=isBuy?swing.low+range*0.618:swing.high-range*0.618;
+  var fib786=isBuy?swing.low+range*0.786:swing.high-range*0.786;
+  var fibLevels=isBuy?[fib786,fib618,fib382,fib236]:[fib236,fib382,fib618,fib786];
+  var slLevel=fibLevels[0];
+  for(var i=0;i<fibLevels.length;i++){if(isBuy&&fibLevels[i]<entry){slLevel=fibLevels[i];break;}if(!isBuy&&fibLevels[i]>entry){slLevel=fibLevels[i];break;}}
+  var sl=isBuy?slLevel-atr*0.2:slLevel+atr*0.2;sl=parseFloat(sl.toFixed(dp));
   var slPips=Math.round(Math.abs(entry-sl)/pip);
+  var minSl=symbol.indexOf("XAU")>=0?80:symbol.indexOf("BTC")>=0?500:25;
+  var maxSl=symbol.indexOf("XAU")>=0?150:symbol.indexOf("BTC")>=0?2000:60;
+  if(slPips<minSl){slPips=minSl;sl=parseFloat((isBuy?entry-slPips*pip:entry+slPips*pip).toFixed(dp));}
+  if(slPips>maxSl){slPips=maxSl;sl=parseFloat((isBuy?entry-slPips*pip:entry+slPips*pip).toFixed(dp));}
+  var ext1272=isBuy?swing.high+range*0.272:swing.low-range*0.272;
+  var ext1618=isBuy?swing.high+range*0.618:swing.low-range*0.618;
+  var ext2618=isBuy?swing.high+range*1.618:swing.low-range*1.618;
+  var tp1=parseFloat(ext1272.toFixed(dp));
+  var tp2=parseFloat(ext1618.toFixed(dp));
+  var tp3=parseFloat(ext2618.toFixed(dp));
   var tp1Pips=Math.round(Math.abs(tp1-entry)/pip);
   var tp2Pips=Math.round(Math.abs(tp2-entry)/pip);
   var tp3Pips=Math.round(Math.abs(tp3-entry)/pip);
-  if(tp1Pips<slPips){tp1=isBuy?entry+slPips*pip:entry-slPips*pip;tp1Pips=slPips;}
-  if(tp2Pips<slPips*2){tp2=isBuy?entry+slPips*pip*2.8:entry-slPips*pip*2.8;tp2Pips=Math.round(slPips*2.8);}
-  if(tp3Pips<slPips*4){tp3=isBuy?entry+slPips*pip*5.8:entry-slPips*pip*5.8;tp3Pips=Math.round(slPips*5.8);}
+  if(tp1Pips<slPips){tp1=parseFloat((isBuy?entry+slPips*pip:entry-slPips*pip).toFixed(dp));tp1Pips=slPips;}
+  if(tp2Pips<slPips*3){tp2=parseFloat((isBuy?entry+slPips*pip*3:entry-slPips*pip*3).toFixed(dp));tp2Pips=slPips*3;}
+  if(tp3Pips<slPips*6){tp3=parseFloat((isBuy?entry+slPips*pip*6:entry-slPips*pip*6).toFixed(dp));tp3Pips=slPips*6;}
   var rr=Math.round(tp3Pips/slPips);
-  return{isBuy:isBuy,symbol:symbol,
-    entry:entry.toFixed(dp),sl:sl.toFixed(dp),
+  return{isBuy:isBuy,symbol:symbol,entry:entry.toFixed(dp),sl:sl.toFixed(dp),
     tp1:tp1.toFixed(dp),tp2:tp2.toFixed(dp),tp3:tp3.toFixed(dp),
     slPts:slPips,tp1Pts:tp1Pips,tp2Pts:tp2Pips,tp3Pts:tp3Pips,
     rr1:(tp1Pips/slPips).toFixed(1),rr2:(tp2Pips/slPips).toFixed(1),rr3:rr};
 }
 
-function sendTG(msg){
-  try{fetch("https://api.telegram.org/bot"+TG_TOKEN+"/sendMessage",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({chat_id:TG_CHAT,text:msg})});}catch(e){}
-}
+function sendTG(msg){try{fetch("https://api.telegram.org/bot"+TG_TOKEN+"/sendMessage",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({chat_id:TG_CHAT,text:msg})});}catch(e){}}
 
 function MiniChart(props){
   var ref=useRef(null);
   useEffect(function(){
     if(!ref.current||!props.candles||!props.candles.length)return;
     var cv=ref.current,dpr=window.devicePixelRatio||1;
-    var W=Math.max(cv.parentElement.clientWidth-32,200),H=160;
+    var W=cv.parentElement.clientWidth,H=180;
     cv.width=W*dpr;cv.height=H*dpr;cv.style.width=W+"px";cv.style.height=H+"px";
     var ctx=cv.getContext("2d");ctx.scale(dpr,dpr);
     var rc=props.candles.slice(-40);
-    var re20=props.ema20?props.ema20.slice(-40):[];
-    var re50=props.ema50?props.ema50.slice(-40):[];
     var ps=rc.reduce(function(a,c){return a.concat([c.h,c.l]);},[]);
-    var mn=Math.min.apply(null,ps),mx=Math.max.apply(null,ps),rng=mx-mn||1,pad=12;
+    var mn=Math.min.apply(null,ps),mx=Math.max.apply(null,ps),rng=mx-mn||1,pad=14;
     var py=function(p){return H-pad-((p-mn)/rng)*(H-pad*2);};
-    ctx.fillStyle=C.card;ctx.fillRect(0,0,W,H);
-    ctx.strokeStyle=C.border;ctx.lineWidth=0.5;
-    for(var i=1;i<=3;i++){var y=pad+(H-pad*2)*i/4;ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+    // Background gradient
+    var grad=ctx.createLinearGradient(0,0,0,H);
+    grad.addColorStop(0,"#0e0e1a");grad.addColorStop(1,"#080810");
+    ctx.fillStyle=grad;ctx.fillRect(0,0,W,H);
+    // Grid
+    ctx.strokeStyle="rgba(30,30,53,0.8)";ctx.lineWidth=1;
+    for(var i=1;i<=4;i++){var y=pad+(H-pad*2)*i/5;ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+    // Fibonacci zones
+    if(props.swing){
+      var range2=props.swing.high-props.swing.low;
+      [[0.382,"rgba(157,78,221,0.08)"],[0.618,"rgba(157,78,221,0.15)"]].forEach(function(f){
+        var lvl=props.swing.low+range2*f[0];
+        if(lvl>=mn&&lvl<=mx){ctx.fillStyle=f[1];ctx.fillRect(0,py(lvl)-1,W,3);}
+      });
+    }
     var step=W/rc.length,cw=Math.max(2,step-1.5);
-    rc.forEach(function(c,i){var x=i*step+step/2,bull=c.c>=c.o;ctx.strokeStyle=bull?"rgba(76,217,123,0.6)":"rgba(240,96,96,0.6)";ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(x,py(c.h));ctx.lineTo(x,py(c.l));ctx.stroke();ctx.fillStyle=bull?"rgba(76,217,123,0.85)":"rgba(240,96,96,0.85)";var bt=py(Math.max(c.o,c.c)),bb=py(Math.min(c.o,c.c));ctx.fillRect(x-cw/2,bt,cw,Math.max(1,bb-bt));});
-    function dl(arr,color,dash){if(!arr||arr.length<2)return;ctx.beginPath();ctx.strokeStyle=color;ctx.lineWidth=1.5;ctx.setLineDash(dash||[]);arr.forEach(function(v,i){var x=i*step+step/2;i===0?ctx.moveTo(x,py(v)):ctx.lineTo(x,py(v));});ctx.stroke();ctx.setLineDash([]);}
-    dl(re20,C.gold);dl(re50,C.blue,[5,3]);
-  },[props.candles,props.ema20,props.ema50]);
-  return React.createElement("canvas",{ref:ref,style:{display:"block",borderRadius:10}});
+    rc.forEach(function(c,i){
+      var x=i*step+step/2,bull=c.c>=c.o;
+      ctx.strokeStyle=bull?"rgba(0,212,170,0.5)":"rgba(255,77,109,0.5)";ctx.lineWidth=1;
+      ctx.beginPath();ctx.moveTo(x,py(c.h));ctx.lineTo(x,py(c.l));ctx.stroke();
+      ctx.fillStyle=bull?"rgba(0,212,170,0.9)":"rgba(255,77,109,0.9)";
+      var bt=py(Math.max(c.o,c.c)),bb=py(Math.min(c.o,c.c));
+      ctx.fillRect(x-cw/2,bt,cw,Math.max(1,bb-bt));
+    });
+    function dl(arr,color,dash,w){if(!arr||arr.length<2)return;ctx.beginPath();ctx.strokeStyle=color;ctx.lineWidth=w||1.5;ctx.setLineDash(dash||[]);arr.forEach(function(v,i){var x=i*step+step/2;i===0?ctx.moveTo(x,py(v)):ctx.lineTo(x,py(v));});ctx.stroke();ctx.setLineDash([]);}
+    dl(props.ema20,C.gold,[],1.5);dl(props.ema50,C.blue,[4,3],1);
+  },[props.candles,props.ema20,props.ema50,props.swing]);
+  return React.createElement("canvas",{ref:ref,style:{display:"block",borderRadius:12}});
+}
+
+function Badge(props){
+  return React.createElement("span",{style:{fontSize:10,fontWeight:700,padding:"3px 8px",borderRadius:4,background:props.color+"20",color:props.color,border:"1px solid "+props.color+"30",letterSpacing:0.5}},props.label);
 }
 
 function PairSelector(props){
   var catState=useState("Metaux");var cat=catState[0],setCat=catState[1];
-  return React.createElement("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.9)",zIndex:100,display:"flex",flexDirection:"column"}},
-    React.createElement("div",{style:{background:C.card,borderBottom:"1px solid "+C.border,padding:"18px 20px 12px",display:"flex",justifyContent:"space-between",alignItems:"center"}},
-      React.createElement("div",{style:{fontSize:16,fontWeight:700,color:C.text}},"Choisir une paire"),
-      React.createElement("button",{onClick:props.onClose,style:{background:C.border,border:"none",borderRadius:8,color:C.text,fontSize:13,padding:"6px 14px",cursor:"pointer"}},"Fermer")),
-    React.createElement("div",{style:{display:"flex",gap:6,padding:"12px 16px",background:C.card,borderBottom:"1px solid "+C.border,overflowX:"auto"}},
-      CATS.map(function(c){return React.createElement("button",{key:c,onClick:function(){setCat(c);},style:{flexShrink:0,padding:"6px 14px",borderRadius:16,cursor:"pointer",border:"1px solid "+(cat===c?C.gold:C.border),background:cat===c?C.goldSoft:C.bg,color:cat===c?C.gold:C.text2,fontSize:12,fontWeight:cat===c?600:400}},c);})),
-    React.createElement("div",{style:{flex:1,overflowY:"auto",padding:"10px 16px"}},
+  return React.createElement("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.95)",zIndex:200,display:"flex",flexDirection:"column"}},
+    React.createElement("div",{style:{background:C.card,borderBottom:"1px solid "+C.border,padding:"20px",display:"flex",justifyContent:"space-between",alignItems:"center"}},
+      React.createElement("div",null,
+        React.createElement("div",{style:{fontSize:16,fontWeight:800,color:C.text,letterSpacing:0.5}},"PAIRES"),
+        React.createElement("div",{style:{fontSize:11,color:C.text2}},"Selectionner un marche")),
+      React.createElement("button",{onClick:props.onClose,style:{background:C.card2,border:"1px solid "+C.border,borderRadius:10,color:C.text2,fontSize:12,padding:"8px 16px",cursor:"pointer"}},"✕ Fermer")),
+    React.createElement("div",{style:{display:"flex",gap:6,padding:"14px 16px",background:C.card,borderBottom:"1px solid "+C.border,overflowX:"auto"}},
+      CATS.map(function(c){return React.createElement("button",{key:c,onClick:function(){setCat(c);},style:{flexShrink:0,padding:"7px 16px",borderRadius:8,cursor:"pointer",border:"1px solid "+(cat===c?C.gold:C.border),background:cat===c?C.goldGlow:C.card2,color:cat===c?C.gold:C.text2,fontSize:12,fontWeight:700,letterSpacing:0.5}},c);})),
+    React.createElement("div",{style:{flex:1,overflowY:"auto",padding:"12px 16px"}},
       PAIRS.filter(function(p){return p.cat===cat;}).map(function(p){
         var active=p.symbol===props.current;
-        return React.createElement("div",{key:p.symbol,onClick:function(){props.onSelect(p);props.onClose();},style:{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"14px 16px",background:active?C.goldSoft:C.card,border:"1px solid "+(active?C.gold+"44":C.border),borderRadius:12,marginBottom:8,cursor:"pointer"}},
+        return React.createElement("div",{key:p.symbol,onClick:function(){props.onSelect(p);props.onClose();},style:{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"14px 16px",background:active?C.goldGlow:C.card,border:"1px solid "+(active?C.gold+"60":C.border),borderRadius:12,marginBottom:8,cursor:"pointer"}},
           React.createElement("div",{style:{display:"flex",alignItems:"center",gap:12}},
-            React.createElement("span",{style:{fontSize:22}},p.emoji),
-            React.createElement("div",{style:{fontSize:14,fontWeight:600,color:active?C.gold:C.text}},p.symbol)),
-          active&&React.createElement("span",{style:{fontSize:12,color:C.gold,fontWeight:600}},"Actif"));
+            React.createElement("div",{style:{width:40,height:40,borderRadius:10,background:active?C.goldSoft:C.card2,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20}},p.emoji),
+            React.createElement("div",null,
+              React.createElement("div",{style:{fontSize:14,fontWeight:700,color:active?C.gold:C.text,letterSpacing:0.5}},p.symbol),
+              React.createElement("div",{style:{fontSize:11,color:C.text2,marginTop:2}},p.cat))),
+          active&&React.createElement("div",{style:{width:8,height:8,borderRadius:"50%",background:C.gold}})
+        );
       })));
 }
 
-function PlanCard(props){
-  var plan=props.plan,signal=props.signal;
-  if(!plan){
-    return React.createElement("div",{style:{background:C.card,border:"1px solid "+C.border,borderRadius:16,padding:"24px 20px",textAlign:"center"}},
-      React.createElement("div",{style:{fontSize:32,marginBottom:10}},"🎯"),
-      React.createElement("div",{style:{fontSize:15,fontWeight:600,color:C.text,marginBottom:8}},"En attente d'un setup sniper"),
-      React.createElement("div",{style:{fontSize:13,color:C.text2,lineHeight:1.7}},"Le signal se declenchera quand 3 conditions sur 4 sont reunies."),
-      signal&&React.createElement("div",{style:{marginTop:16,background:C.card2,borderRadius:12,padding:"12px 16px"}},
-        React.createElement("div",{style:{fontSize:11,color:C.text2,marginBottom:8,fontWeight:600,textTransform:"uppercase"}},"Conditions"),
-        [
-          {ok:true,label:"Tendance 4H",detail:"EMA 20 / EMA 50"},
-          {ok:signal.conditions.rsi,label:"RSI 1H neutre",detail:"Entre 35 et 65"},
-          {ok:signal.conditions.stoch,label:"Stoch 15min",detail:"Croisement direction"},
-          {ok:signal.conditions.fib,label:"Zone Fibonacci",detail:"Niveau 0.382 ou 0.618"}
-        ].map(function(r,i){
-          return React.createElement("div",{key:i,style:{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:i<3?"1px solid "+C.border:"none"}},
-            React.createElement("div",{style:{width:20,height:20,borderRadius:"50%",background:r.ok?C.green+"25":C.red+"25",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}},
-              React.createElement("span",{style:{fontSize:11,color:r.ok?C.green:C.red}},r.ok?"✓":"✗")),
-            React.createElement("div",null,
-              React.createElement("div",{style:{fontSize:13,color:C.text}},r.label),
-              React.createElement("div",{style:{fontSize:11,color:C.text2}},r.detail)));
-        })));
-  }
-  var col=plan.isBuy?C.green:C.red;
-  function row(label,val,sub,c){return React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"11px 0",borderBottom:"1px solid "+C.border}},React.createElement("span",{style:{fontSize:13,color:C.text2}},label),React.createElement("div",{style:{textAlign:"right"}},React.createElement("div",{style:{fontSize:14,fontWeight:700,color:c||C.text}},val),sub&&React.createElement("div",{style:{fontSize:11,color:C.text3}},sub)));}
-  return React.createElement("div",{style:{animation:"fadeIn 0.4s ease"}},
-    React.createElement("div",{style:{background:col+"15",border:"1px solid "+col+"30",borderRadius:16,padding:"14px 18px",marginBottom:10,display:"flex",justifyContent:"space-between",alignItems:"center"}},
+function ActiveTradeAlert(props){
+  var plan=props.plan,newDirection=props.newDirection;
+  if(!plan||!newDirection||newDirection===plan.direction)return null;
+  var msg=newDirection==="buy"?"Signal ACHAT detecte":"Signal VENTE detecte";
+  return React.createElement("div",{style:{margin:"0 16px 12px",background:"rgba(255,77,109,0.1)",border:"1px solid rgba(255,77,109,0.4)",borderRadius:14,padding:"14px 16px",animation:"fadeIn 0.3s ease"}},
+    React.createElement("div",{style:{display:"flex",alignItems:"flex-start",gap:12}},
+      React.createElement("div",{style:{fontSize:20,flexShrink:0}},"⚠️"),
       React.createElement("div",null,
-        React.createElement("div",{style:{fontSize:11,color:col,fontWeight:600,letterSpacing:0.8,marginBottom:2}},"SNIPER SIGNAL"),
-        React.createElement("div",{style:{fontSize:18,fontWeight:700,color:col}},plan.isBuy?"🔹 ACHAT "+plan.symbol:"🔸 VENTE "+plan.symbol)),
-      React.createElement("div",{style:{textAlign:"center",background:col+"20",borderRadius:10,padding:"8px 12px"}},
-        React.createElement("div",{style:{fontSize:10,color:C.text3}},"R/R"),
-        React.createElement("div",{style:{fontSize:24,fontWeight:700,color:col}},"1:"+plan.rr3))),
-    React.createElement("div",{style:{background:C.card,border:"1px solid "+C.border,borderRadius:16,padding:"4px 16px",marginBottom:10}},
-      row("Entree",plan.entry,"Prix d'entree",C.text),
-      row("Stop Loss",plan.sl,plan.slPts+" pips",C.red)),
-    React.createElement("div",{style:{background:C.card,border:"1px solid "+C.border,borderRadius:16,padding:"4px 16px",marginBottom:10}},
-      React.createElement("div",{style:{fontSize:11,fontWeight:600,color:C.text2,padding:"12px 0 8px",textTransform:"uppercase"}},"Objectifs Fibonacci"),
-      row("TP1 (1.272)",plan.tp1,plan.tp1Pts+" pips - R/R "+plan.rr1,C.green),
-      row("TP2 (1.618)",plan.tp2,plan.tp2Pts+" pips - R/R "+plan.rr2,C.green),
-      row("TP3 (2.618)",plan.tp3,plan.tp3Pts+" pips - R/R "+plan.rr3,C.green)),
-    React.createElement("div",{style:{background:C.purpleSoft,border:"1px solid "+C.purple+"30",borderRadius:14,padding:"14px 16px"}},
-      React.createElement("div",{style:{fontSize:12,fontWeight:600,color:C.purple,marginBottom:8}},"Gestion Sniper"),
-      [{t:"TP1",c:"Ferme 40% - SL a l'entree"},{t:"TP2",c:"Ferme 40% - laisse 20%"},{t:"TP3",c:"Fibonacci 2.618 - laisser courir"}]
-      .map(function(x,i){return React.createElement("div",{key:i,style:{display:"flex",gap:10,marginBottom:i<2?8:0}},React.createElement("span",{style:{fontSize:12,color:C.purple,fontWeight:600,flexShrink:0}},x.t+":"),React.createElement("span",{style:{fontSize:12,color:C.text2,lineHeight:1.5}},x.c));})));
+        React.createElement("div",{style:{fontSize:13,fontWeight:700,color:C.red,marginBottom:4}},"FERMER LE TRADE EN COURS"),
+        React.createElement("div",{style:{fontSize:12,color:C.text2,lineHeight:1.6}},msg+" — Votre trade actuel va a contre-sens. Fermez la position et suivez le nouveau signal."))));
 }
 
 function SetupScreen(props){
   var ks=useState("");var key=ks[0],setKey=ks[1];
   return React.createElement("div",{style:{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"32px 24px",background:C.bg}},
-    React.createElement("div",{style:{fontSize:48,marginBottom:8}},"🎯"),
-    React.createElement("div",{style:{fontSize:26,fontWeight:700,color:C.text,marginBottom:4}},"Sniper Signals"),
-    React.createElement("div",{style:{fontSize:13,color:C.text2,marginBottom:32}},"Fibonacci - Multi-TF - Alertes Telegram"),
+    React.createElement("div",{style:{marginBottom:32,textAlign:"center"}},
+      React.createElement("div",{style:{fontSize:48,marginBottom:12}},"📊"),
+      React.createElement("div",{style:{fontSize:28,fontWeight:800,color:C.text,letterSpacing:1,marginBottom:6}},"GOLDSIGNALS PRO"),
+      React.createElement("div",{style:{fontSize:13,color:C.text2}},"Fibonacci · Sniper · Alertes Telegram")),
     React.createElement("div",{style:{width:"100%",maxWidth:360,background:C.card,border:"1px solid "+C.border,borderRadius:20,padding:"28px 24px"}},
-      React.createElement("div",{style:{fontSize:12,fontWeight:600,color:C.text2,marginBottom:8,textTransform:"uppercase"}},"Cle API Twelvedata"),
+      React.createElement("div",{style:{fontSize:11,fontWeight:700,color:C.text2,marginBottom:10,textTransform:"uppercase",letterSpacing:1}},"Cle API Twelvedata"),
       React.createElement("input",{value:key,onChange:function(e){setKey(e.target.value);},placeholder:"Colle ta cle ici...",style:{background:C.bg,border:"1px solid "+C.border,borderRadius:10,color:C.text,fontSize:14,padding:"14px 16px",outline:"none",marginBottom:10}}),
       React.createElement("div",{style:{fontSize:12,color:C.text3,marginBottom:24,lineHeight:1.8}},"Gratuit sur ",React.createElement("span",{style:{color:C.gold}},"twelvedata.com")),
-      React.createElement("button",{onClick:function(){if(key.trim())props.onLaunch(key.trim());},style:{width:"100%",background:C.gold,color:"#0a0a0f",border:"none",borderRadius:12,padding:"16px",fontSize:15,fontWeight:700,cursor:"pointer"}},"Lancer")));
+      React.createElement("button",{onClick:function(){if(key.trim())props.onLaunch(key.trim());},style:{width:"100%",background:C.gradient1,color:"#fff",border:"none",borderRadius:12,padding:"16px",fontSize:14,fontWeight:800,cursor:"pointer",letterSpacing:1}},"LANCER L'APP →")));
 }
 
 function App(){
@@ -266,17 +278,18 @@ function App(){
   var sps=useState(false);var showPairs=sps[0],setShowPairs=sps[1];
   var ps=useState(null);var price=ps[0],setPrice=ps[1];
   var chs=useState(null);var change=chs[0],setChange=chs[1];
-  var sigs=useState(null);var sniperSig=sigs[0],setSniperSig=sigs[1];
+  var sigs=useState(null);var signal=sigs[0],setSignal=sigs[1];
   var plans=useState(null);var tradePlan=plans[0],setTradePlan=plans[1];
-  var cds=useState({candles:[],ema20:[],ema50:[]});var chartData=cds[0],setChartData=cds[1];
+  var prevPlanRef=useRef(null);
+  var cds=useState({candles:[],ema20:[],ema50:[],swing:null});var chartData=cds[0],setChartData=cds[1];
   var lus=useState("");var lastUpdate=lus[0],setLastUpdate=lus[1];
-  var ats=useState("plan");var activeTab=ats[0],setActiveTab=ats[1];
+  var ats=useState("trade");var activeTab=ats[0],setActiveTab=ats[1];
   var pus=useState(0);var pullDist=pus[0],setPullDist=pus[1];
   var timerRef=useRef(null);var wsRef=useRef(null);var lastNotifRef=useRef("");var startYRef=useRef(0);
   var THRESHOLD=70;
 
   var fmtPrice=function(p,sym){
-    if(!p)return "-.--";
+    if(!p)return "--";
     var dp;
     if(sym&&sym.indexOf("BTC")>=0)dp=0;
     else if(sym&&sym.indexOf("XAU")>=0)dp=2;
@@ -285,7 +298,15 @@ function App(){
     return p.toFixed(dp).replace(/\B(?=(\d{3})+(?!\d))/g," ");
   };
 
-  var sendTelegram=useCallback(function(plan,sig){
+  var sendTelegram=useCallback(function(plan,sig,isClose){
+    if(isClose){
+      var closeMsg="⚠️ FERMER LE TRADE EN COURS\n\n"+
+        "Un nouveau signal inverse a ete detecte sur "+plan.symbol+".\n"+
+        "Fermez votre position actuelle immediatement.\n\n"+
+        "Nouveau signal : "+(sig.direction==="buy"?"🔹 ACHAT":"🔸 VENTE");
+      sendTG(closeMsg);
+      return;
+    }
     var key=sig.direction+plan.symbol;
     if(lastNotifRef.current===key)return;
     lastNotifRef.current=key;
@@ -294,10 +315,10 @@ function App(){
     var msg="🎯 SIGNAL SNIPER\n\n"+dir+"\n\n"+
       "Prix d'entree : "+plan.entry+" ( execution immediate )\n\n"+
       "SL : "+plan.sl+" ( "+plan.slPts+" pips pertes )\n"+
-      "TP1 : "+plan.tp1+" ( "+plan.tp1Pts+" pips gains )\n"+
-      "TP2 : "+plan.tp2+" ( "+plan.tp2Pts+" pips gains )\n"+
-      "TP3 : "+plan.tp3+" ( "+plan.tp3Pts+" pips gains )\n\n"+
-      "💠 Risk reward ratio : 1:"+plan.rr3+"\n\n"+
+      "TP1 : "+plan.tp1+" ( "+plan.tp1Pts+" pips )\n"+
+      "TP2 : "+plan.tp2+" ( "+plan.tp2Pts+" pips )\n"+
+      "TP3 : "+plan.tp3+" ( "+plan.tp3Pts+" pips )\n\n"+
+      "R/R : 1:"+plan.rr3+"\n\n"+
       "Ceci n'est pas un conseil d'investissement, c'est juste mon investissement personnel que je vous partage.";
     sendTG(msg);
   },[]);
@@ -323,16 +344,24 @@ function App(){
       var ema20a=calcEMA(closes,20),ema50a=calcEMA(closes,50);
       var atr=calcATR(highs,lows,closes,14);
       setChange(((p-closes[closes.length-2])/closes[closes.length-2])*100);
-      setChartData({candles:c4h,ema20:ema20a,ema50:ema50a});
+      var swing=findSwing(highs,lows,20);
+      setChartData({candles:c4h,ema20:ema20a,ema50:ema50a,swing:swing});
       setLastUpdate(new Date().toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit",second:"2-digit"}));
       var closes1h=c1h?c1h.map(function(c){return c.c;}):closes;
       var closes15=c15?c15.map(function(c){return c.c;}):closes;
       var sig=computeSignal(p,closes,highs,lows,closes1h,closes15);
-      setSniperSig(sig);
+      setSignal(sig);
       var plan=null;
       if(sig.direction!=="neutral")plan=buildPlan(p,atr,sig,sym);
+      // Detecter signal inverse
+      if(plan&&prevPlanRef.current&&plan.isBuy!==prevPlanRef.current.isBuy){
+        sendTelegram(plan,sig,true);
+      }
+      if(plan){
+        sendTelegram(plan,sig,false);
+        prevPlanRef.current=plan;
+      }
       setTradePlan(plan);
-      if(plan)sendTelegram(plan,sig);
     }catch(e){setError("Erreur: "+e.message);}
   },[apiKey,selectedPair,sendTelegram]);
 
@@ -348,7 +377,7 @@ function App(){
   var selectPair=useCallback(function(pair){
     if(pair.symbol===selectedPair.symbol)return;
     setSelectedPair(pair);localStorage.setItem("selected_pair",JSON.stringify(pair));
-    setPrice(null);setChange(null);setSniperSig(null);setTradePlan(null);setLoading(true);lastNotifRef.current="";
+    setPrice(null);setChange(null);setSignal(null);setTradePlan(null);setLoading(true);lastNotifRef.current="";prevPlanRef.current=null;
   },[selectedPair]);
 
   var launch=useCallback(function(key){setApiKey(key);localStorage.setItem("td_key",key);setLaunched(true);setLoading(true);},[]);
@@ -369,59 +398,186 @@ function App(){
   var onTouchEnd=useCallback(function(){if(pullDist>=THRESHOLD)refresh();setPullDist(0);startYRef.current=0;},[pullDist,refresh]);
 
   if(!launched)return React.createElement(SetupScreen,{onLaunch:launch});
-  if(loading)return React.createElement("div",{style:{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",background:C.bg,gap:16}},
-    React.createElement("div",{style:{fontSize:36}},selectedPair.emoji),
-    React.createElement("div",{style:{width:28,height:28,border:"2px solid "+C.border,borderTopColor:C.gold,borderRadius:"50%",animation:"spin 0.8s linear infinite"}}),
-    React.createElement("div",{style:{fontSize:13,color:C.text2}},"Chargement "+selectedPair.symbol+"..."));
 
-  var sig=sniperSig;
-  var tabs=[{id:"plan",label:"🎯 Sniper"},{id:"chart",label:"Chart"}];
+  if(loading)return React.createElement("div",{style:{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",background:C.bg,gap:20}},
+    React.createElement("div",{style:{fontSize:44}},"📊"),
+    React.createElement("div",{style:{width:32,height:32,border:"2px solid "+C.border,borderTopColor:C.gold,borderRadius:"50%",animation:"spin 0.8s linear infinite"}}),
+    React.createElement("div",{style:{fontSize:12,color:C.text2,fontWeight:600,letterSpacing:1}},"CHARGEMENT "+selectedPair.symbol));
 
-  return React.createElement("div",{onTouchStart:onTouchStart,onTouchMove:onTouchMove,onTouchEnd:onTouchEnd,style:{background:C.bg,minHeight:"100vh",paddingBottom:48}},
+  var sig=signal;
+  var sigColor=sig?sig.color:C.gold;
+  var tabs=[{id:"trade",label:"TRADE"},{id:"analyse",label:"ANALYSE"},{id:"chart",label:"CHART"}];
+
+  return React.createElement("div",{onTouchStart:onTouchStart,onTouchMove:onTouchMove,onTouchEnd:onTouchEnd,style:{background:C.bg,minHeight:"100vh",paddingBottom:80}},
     showPairs&&React.createElement(PairSelector,{current:selectedPair.symbol,onSelect:selectPair,onClose:function(){setShowPairs(false);}}),
-    pullDist>0&&React.createElement("div",{style:{display:"flex",justifyContent:"center",alignItems:"center",height:pullDist,background:C.bg}},
-      React.createElement("div",{style:{fontSize:12,color:C.text3}},pullDist>=THRESHOLD?"Relacher":"Tirer")),
-    React.createElement("div",{style:{padding:"14px 16px 12px",borderBottom:"1px solid "+C.border,display:"flex",justifyContent:"space-between",alignItems:"center",position:"sticky",top:0,background:C.bg,zIndex:10}},
-      React.createElement("button",{onClick:function(){setShowPairs(true);},style:{display:"flex",alignItems:"center",gap:8,background:C.card,border:"1px solid "+C.border,borderRadius:12,padding:"8px 12px",cursor:"pointer"}},
-        React.createElement("span",{style:{fontSize:18}},selectedPair.emoji),
-        React.createElement("div",{style:{textAlign:"left"}},
-          React.createElement("div",{style:{fontSize:14,fontWeight:700,color:C.text}},selectedPair.symbol),
-          React.createElement("div",{style:{fontSize:10,color:C.text3}},"Sniper - Fibonacci")),
+    pullDist>0&&React.createElement("div",{style:{display:"flex",justifyContent:"center",alignItems:"center",height:pullDist,background:C.bg,transition:"height 0.1s"}},
+      React.createElement("div",{style:{fontSize:11,color:C.text3,fontWeight:600,letterSpacing:1}},pullDist>=THRESHOLD?"RELACHER":"TIRER")),
+
+    // TOP BAR
+    React.createElement("div",{style:{padding:"14px 16px",borderBottom:"1px solid "+C.border,display:"flex",justifyContent:"space-between",alignItems:"center",position:"sticky",top:0,background:C.bg,zIndex:50}},
+      React.createElement("button",{onClick:function(){setShowPairs(true);},style:{display:"flex",alignItems:"center",gap:10,background:C.card,border:"1px solid "+C.border,borderRadius:12,padding:"10px 14px",cursor:"pointer"}},
+        React.createElement("div",{style:{width:34,height:34,borderRadius:8,background:C.card2,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}},selectedPair.emoji),
+        React.createElement("div",null,
+          React.createElement("div",{style:{fontSize:14,fontWeight:800,color:C.text,letterSpacing:0.5}},selectedPair.symbol),
+          React.createElement("div",{style:{fontSize:10,color:C.text2,marginTop:1}},"4H · Fibonacci")),
         React.createElement("span",{style:{fontSize:10,color:C.text3,marginLeft:4}},"▼")),
       React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8}},
-        React.createElement("div",{style:{display:"flex",alignItems:"center",gap:5,background:C.card,borderRadius:20,padding:"5px 10px",border:"1px solid "+C.border}},
-          React.createElement("div",{style:{width:5,height:5,borderRadius:"50%",background:C.green,animation:"pulse 2s infinite"}}),
-          React.createElement("span",{style:{fontSize:10,color:C.text2}},lastUpdate||"--:--")),
-        React.createElement("button",{onClick:refresh,style:{background:C.card,border:"1px solid "+C.border,borderRadius:10,color:C.text2,width:32,height:32,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:14}},"↻"))),
-    error&&React.createElement("div",{style:{margin:"10px 16px",background:C.redSoft,border:"1px solid rgba(240,96,96,0.3)",borderRadius:12,padding:"10px 14px",fontSize:12,color:C.red}},error),
-    React.createElement("div",{style:{padding:"18px 20px 12px",textAlign:"center"}},
-      React.createElement("div",{style:{fontSize:44,fontWeight:700,color:C.text,letterSpacing:-1}},fmtPrice(price,selectedPair.symbol)),
-      React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"center",gap:6,marginTop:4}},
-        React.createElement("span",{style:{fontSize:13,fontWeight:600,color:change!=null?(change>=0?C.green:C.red):C.muted}},change!=null?(change>=0?"+":"")+change.toFixed(2)+"%":"--"),
-        React.createElement("span",{style:{fontSize:12,color:C.text3}},"aujourd'hui"))),
-    sig&&React.createElement("div",{style:{margin:"0 16px 12px",background:sig.bg,border:"1px solid "+sig.color+"30",borderRadius:16,padding:"14px 18px",display:"flex",justifyContent:"space-between",alignItems:"center"}},
-      React.createElement("div",null,
-        React.createElement("div",{style:{fontSize:10,fontWeight:600,color:sig.color,letterSpacing:0.8,marginBottom:4,textTransform:"uppercase"}},"Signal Sniper"),
-        React.createElement("div",{style:{fontSize:20,fontWeight:700,color:sig.color}},sig.label),
-        React.createElement("div",{style:{fontSize:12,color:C.text2,marginTop:2}},sig.advice)),
-      React.createElement("div",{style:{textAlign:"center",background:sig.color+"20",borderRadius:10,padding:"8px 12px"}},
-        React.createElement("div",{style:{fontSize:10,color:C.text3,marginBottom:2}},"CONDITIONS"),
-        React.createElement("div",{style:{fontSize:28,fontWeight:700,color:sig.color}},sig.score+"/4"))),
-    React.createElement("div",{style:{display:"flex",gap:6,padding:"0 16px 12px",overflowX:"auto"}},
-      tabs.map(function(t){return React.createElement("button",{key:t.id,onClick:function(){setActiveTab(t.id);},style:{flexShrink:0,padding:"7px 16px",borderRadius:20,cursor:"pointer",border:"1px solid "+(activeTab===t.id?(sig?sig.color:C.gold):C.border),background:activeTab===t.id?(sig?sig.color:C.gold)+"18":C.card,color:activeTab===t.id?(sig?sig.color:C.gold):C.text2,fontSize:12,fontWeight:activeTab===t.id?600:400}},t.label);})),
-    activeTab==="plan"&&React.createElement("div",{style:{padding:"0 16px"}},React.createElement(PlanCard,{plan:tradePlan,signal:sig})),
-    activeTab==="chart"&&React.createElement("div",{style:{padding:"0 16px"}},
-      React.createElement("div",{style:{background:C.card,border:"1px solid "+C.border,borderRadius:16,padding:"16px"}},
-        React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}},
-          React.createElement("span",{style:{fontSize:13,fontWeight:600,color:C.text}},selectedPair.symbol+" - 4H"),
-          React.createElement("div",{style:{display:"flex",gap:10}},
-            React.createElement("span",{style:{fontSize:10,color:C.gold}},"EMA20"),
-            React.createElement("span",{style:{fontSize:10,color:C.blue}},"EMA50"))),
-        React.createElement(MiniChart,{candles:chartData.candles,ema20:chartData.ema20,ema50:chartData.ema50}))),
-    React.createElement("div",{style:{display:"flex",justifyContent:"center",padding:"16px 16px 0"}},
-      React.createElement("button",{onClick:function(){sendTG("Test notification OK");alert("Test envoye sur Telegram !");},style:{background:C.blueSoft,border:"1px solid "+C.blue+"44",borderRadius:10,color:C.blue,fontSize:12,padding:"10px 20px",cursor:"pointer",fontWeight:600,marginBottom:10}},"Test Telegram")),
-    React.createElement("div",{style:{display:"flex",justifyContent:"center",padding:"8px 16px 0"}},
-      React.createElement("button",{onClick:function(){localStorage.removeItem("td_key");setApiKey("");setLaunched(false);},style:{background:"transparent",border:"1px solid "+C.border,borderRadius:10,color:C.text3,fontSize:12,padding:"8px 18px",cursor:"pointer"}},"Changer la cle API")));
+        React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,background:C.card,borderRadius:20,padding:"6px 12px",border:"1px solid "+C.border}},
+          React.createElement("div",{style:{width:6,height:6,borderRadius:"50%",background:C.green,animation:"pulse 2s infinite",boxShadow:"0 0 8px "+C.green}}),
+          React.createElement("span",{style:{fontSize:10,fontWeight:600,color:C.text2,letterSpacing:0.5}},lastUpdate||"LIVE")),
+        React.createElement("button",{onClick:refresh,style:{background:C.card,border:"1px solid "+C.border,borderRadius:10,color:C.text2,width:36,height:36,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:16}},"↻"))),
+
+    error&&React.createElement("div",{style:{margin:"10px 16px",background:C.redSoft,border:"1px solid "+C.red+"30",borderRadius:12,padding:"12px 14px",fontSize:12,color:C.red,fontWeight:500}},error),
+
+    // PRICE SECTION
+    React.createElement("div",{style:{padding:"20px 16px 16px"}},
+      React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}},
+        React.createElement("div",null,
+          React.createElement("div",{style:{fontSize:42,fontWeight:800,color:C.text,letterSpacing:-1,lineHeight:1}},fmtPrice(price,selectedPair.symbol)),
+          React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8,marginTop:6}},
+            React.createElement("div",{style:{display:"flex",alignItems:"center",gap:5,background:change!=null&&change>=0?C.greenSoft:C.redSoft,borderRadius:6,padding:"4px 10px"}},
+              React.createElement("span",{style:{fontSize:12,fontWeight:700,color:change!=null?(change>=0?C.green:C.red):C.muted}},change!=null?(change>=0?"▲ +":"▼ ")+change.toFixed(2)+"%":"--")),
+            React.createElement("span",{style:{fontSize:11,color:C.text3}},"aujourd'hui"))),
+        sig&&React.createElement("div",{style:{textAlign:"right"}},
+          React.createElement("div",{style:{background:sig.bg,border:"1px solid "+sig.color+"30",borderRadius:10,padding:"8px 14px"}},
+            React.createElement("div",{style:{fontSize:10,fontWeight:700,color:sig.color,letterSpacing:1,marginBottom:3}},sig.label),
+            React.createElement("div",{style:{fontSize:20,fontWeight:800,color:sig.color}},sig.score+"/5"),
+            React.createElement("div",{style:{fontSize:10,color:C.text3}},"CONDITIONS"))))),
+
+    // ALERT TRADE INVERSE
+    tradePlan&&signal&&React.createElement(ActiveTradeAlert,{plan:{direction:tradePlan.isBuy?"buy":"sell"},newDirection:signal.direction}),
+
+    // TABS
+    React.createElement("div",{style:{display:"flex",margin:"0 16px 16px",background:C.card,borderRadius:12,padding:4,border:"1px solid "+C.border}},
+      tabs.map(function(t){
+        var active=activeTab===t.id;
+        return React.createElement("button",{key:t.id,onClick:function(){setActiveTab(t.id);},style:{flex:1,padding:"9px",borderRadius:9,cursor:"pointer",border:"none",background:active?C.card2:"transparent",color:active?sigColor:C.text2,fontSize:11,fontWeight:active?800:500,letterSpacing:0.8,transition:"all 0.2s"}},t.label);
+      })),
+
+    // TAB TRADE
+    activeTab==="trade"&&React.createElement("div",{style:{padding:"0 16px",animation:"fadeIn 0.3s ease"}},
+      tradePlan?React.createElement("div",null,
+        // Direction banner
+        React.createElement("div",{style:{background:tradePlan.isBuy?C.greenSoft:C.redSoft,border:"1px solid "+(tradePlan.isBuy?C.green:C.red)+"30",borderRadius:16,padding:"16px 18px",marginBottom:12,animation:tradePlan.isBuy?"glowGreen 3s infinite":"glowRed 3s infinite"}},
+          React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center"}},
+            React.createElement("div",null,
+              React.createElement("div",{style:{fontSize:11,fontWeight:700,color:tradePlan.isBuy?C.green:C.red,letterSpacing:1,marginBottom:4}},"SIGNAL ACTIF"),
+              React.createElement("div",{style:{fontSize:22,fontWeight:800,color:tradePlan.isBuy?C.green:C.red}},tradePlan.isBuy?"🔹 ACHAT "+tradePlan.symbol:"🔸 VENTE "+tradePlan.symbol)),
+            React.createElement("div",{style:{background:(tradePlan.isBuy?C.green:C.red)+"20",borderRadius:10,padding:"10px 14px",textAlign:"center"}},
+              React.createElement("div",{style:{fontSize:10,color:C.text3,marginBottom:2}},"R/R"),
+              React.createElement("div",{style:{fontSize:24,fontWeight:800,color:tradePlan.isBuy?C.green:C.red}},"1:"+tradePlan.rr3)))),
+        // Levels
+        React.createElement("div",{style:{background:C.card,border:"1px solid "+C.border,borderRadius:16,overflow:"hidden",marginBottom:12}},
+          [
+            {icon:"📍",label:"ENTREE",val:tradePlan.entry,sub:"Prix d'entree",color:C.text},
+            {icon:"🛑",label:"STOP LOSS",val:tradePlan.sl,sub:tradePlan.slPts+" pips",color:C.red}
+          ].map(function(r,i){return React.createElement("div",{key:i,style:{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 18px",borderBottom:i<1?"1px solid "+C.border:"none"}},
+            React.createElement("div",{style:{display:"flex",alignItems:"center",gap:10}},
+              React.createElement("span",{style:{fontSize:16}},r.icon),
+              React.createElement("div",null,
+                React.createElement("div",{style:{fontSize:10,fontWeight:700,color:C.text3,letterSpacing:0.8}},[r.label]),
+                React.createElement("div",{style:{fontSize:12,color:C.text2,marginTop:2}},[r.sub]))),
+            React.createElement("div",{style:{fontSize:16,fontWeight:800,color:r.color}},[r.val]));
+          })),
+        // TPs
+        React.createElement("div",{style:{background:C.card,border:"1px solid "+C.border,borderRadius:16,overflow:"hidden",marginBottom:12}},
+          React.createElement("div",{style:{padding:"12px 18px",borderBottom:"1px solid "+C.border,display:"flex",alignItems:"center",gap:8}},
+            React.createElement("span",{style:{fontSize:11,fontWeight:700,color:C.text2,letterSpacing:0.8}},"OBJECTIFS FIBONACCI"),
+            React.createElement(Badge,{label:"AUTO",color:C.purple})),
+          [
+            {label:"TP1",fib:"1.272",val:tradePlan.tp1,pips:tradePlan.tp1Pts,rr:tradePlan.rr1,pct:33},
+            {label:"TP2",fib:"1.618",val:tradePlan.tp2,pips:tradePlan.tp2Pts,rr:tradePlan.rr2,pct:66},
+            {label:"TP3",fib:"2.618",val:tradePlan.tp3,pips:tradePlan.tp3Pts,rr:tradePlan.rr3,pct:100}
+          ].map(function(r,i){return React.createElement("div",{key:i,style:{padding:"12px 18px",borderBottom:i<2?"1px solid "+C.border:"none"}},
+            React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center"}},
+              React.createElement("div",{style:{display:"flex",alignItems:"center",gap:10}},
+                React.createElement("div",{style:{width:28,height:28,borderRadius:7,background:C.greenSoft,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:800,color:C.green}},[i+1]),
+                React.createElement("div",null,
+                  React.createElement("div",{style:{fontSize:12,fontWeight:700,color:C.text}},"TP"+[i+1]+" · Fib "+r.fib),
+                  React.createElement("div",{style:{fontSize:11,color:C.text2,marginTop:1}},[r.pips+" pips · R/R 1:"+r.rr]))),
+              React.createElement("div",{style:{fontSize:16,fontWeight:800,color:C.green}},r.val)));
+          })),
+        // Management
+        React.createElement("div",{style:{background:C.purpleSoft,border:"1px solid "+C.purple+"30",borderRadius:16,padding:"16px 18px"}},
+          React.createElement("div",{style:{fontSize:11,fontWeight:700,color:C.purple,letterSpacing:0.8,marginBottom:12}},"GESTION DE POSITION"),
+          [{icon:"1",t:"Au TP1",c:"Ferme 40% de la position. Deplace le SL a l'entree."},{icon:"2",t:"Au TP2",c:"Ferme encore 40%. Laisse 20% courir vers TP3."},{icon:"3",t:"Signal inverse",c:"Ferme immediatement si signal contraire apparait."}]
+          .map(function(x,i){return React.createElement("div",{key:i,style:{display:"flex",gap:12,marginBottom:i<2?10:0}},
+            React.createElement("div",{style:{width:24,height:24,borderRadius:6,background:C.purple+"20",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:800,color:C.purple,flexShrink:0}},x.icon),
+            React.createElement("div",null,React.createElement("div",{style:{fontSize:12,fontWeight:700,color:C.purple,marginBottom:2}},x.t),React.createElement("div",{style:{fontSize:12,color:C.text2,lineHeight:1.5}},x.c)));
+          })))
+      :React.createElement("div",{style:{background:C.card,border:"1px solid "+C.border,borderRadius:16,padding:"32px 20px",textAlign:"center"}},
+        React.createElement("div",{style:{fontSize:40,marginBottom:12}},"🎯"),
+        React.createElement("div",{style:{fontSize:15,fontWeight:800,color:C.text,marginBottom:8,letterSpacing:0.5}},"EN ATTENTE D'UN SIGNAL"),
+        React.createElement("div",{style:{fontSize:13,color:C.text2,lineHeight:1.7,marginBottom:20}},"Le signal se declenchera quand 4 conditions sur 5 sont reunies simultanement."),
+        sig&&React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}},
+          [
+            {ok:sig.conditions.trend,label:"Tendance 4H"},
+            {ok:sig.conditions.rsi,label:"RSI 1H neutre"},
+            {ok:sig.conditions.momentum,label:"Momentum 4H"},
+            {ok:sig.conditions.stoch,label:"Stoch 15min"},
+            {ok:sig.conditions.fib,label:"Zone Fibonacci"}
+          ].map(function(c,i){return React.createElement("div",{key:i,style:{background:c.ok?C.greenSoft:C.card2,border:"1px solid "+(c.ok?C.green+"30":C.border),borderRadius:10,padding:"10px 12px",display:"flex",alignItems:"center",gap:8}},
+            React.createElement("div",{style:{width:18,height:18,borderRadius:"50%",background:c.ok?C.green+"25":C.red+"25",display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,color:c.ok?C.green:C.red,flexShrink:0}},c.ok?"✓":"✗"),
+            React.createElement("div",{style:{fontSize:11,fontWeight:600,color:c.ok?C.text:C.text2}},c.label));
+          })))),
+
+    // TAB ANALYSE
+    activeTab==="analyse"&&sig&&React.createElement("div",{style:{padding:"0 16px",animation:"fadeIn 0.3s ease"}},
+      React.createElement("div",{style:{background:C.card,border:"1px solid "+C.border,borderRadius:16,overflow:"hidden",marginBottom:12}},
+        React.createElement("div",{style:{padding:"14px 18px",borderBottom:"1px solid "+C.border}},
+          React.createElement("div",{style:{fontSize:11,fontWeight:700,color:C.text2,letterSpacing:0.8}},"INDICATEURS")),
+        [
+          {label:"Tendance 4H",val:sig.isBuy?"Haussiere":"Baissiere",color:sig.isBuy?C.green:C.red,detail:"EMA 20 vs EMA 50"},
+          {label:"RSI 1H",val:sig.rsi?sig.rsi.toFixed(1):"--",color:sig.rsi>65?C.red:sig.rsi<35?C.green:C.gold,detail:sig.rsi>65?"Surachat":sig.rsi<35?"Survente":"Zone neutre"},
+          {label:"Stoch RSI",val:sig.stoch?sig.stoch.k.toFixed(1):"--",color:sig.stoch&&sig.stoch.k>80?C.red:sig.stoch&&sig.stoch.k<20?C.green:C.gold,detail:"15 min"},
+        ].map(function(r,i){return React.createElement("div",{key:i,style:{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 18px",borderBottom:i<2?"1px solid "+C.border:"none"}},
+          React.createElement("div",null,
+            React.createElement("div",{style:{fontSize:13,fontWeight:600,color:C.text}},r.label),
+            React.createElement("div",{style:{fontSize:11,color:C.text2,marginTop:2}},r.detail)),
+          React.createElement("div",{style:{textAlign:"right"}},
+            React.createElement("div",{style:{fontSize:14,fontWeight:800,color:r.color}},r.val)));
+        })),
+      sig.swing&&React.createElement("div",{style:{background:C.card,border:"1px solid "+C.border,borderRadius:16,overflow:"hidden"}},
+        React.createElement("div",{style:{padding:"14px 18px",borderBottom:"1px solid "+C.border,display:"flex",alignItems:"center",gap:8}},
+          React.createElement("div",{style:{fontSize:11,fontWeight:700,color:C.text2,letterSpacing:0.8}},"NIVEAUX FIBONACCI"),
+          React.createElement(Badge,{label:"AUTO",color:C.purple})),
+        [
+          {label:"Swing High",val:sig.swing.high,color:C.red},
+          {label:"0.786",val:sig.swing.low+(sig.swing.high-sig.swing.low)*0.786,color:C.purple},
+          {label:"0.618",val:sig.swing.low+(sig.swing.high-sig.swing.low)*0.618,color:C.purple},
+          {label:"0.500",val:sig.swing.low+(sig.swing.high-sig.swing.low)*0.500,color:C.gold},
+          {label:"0.382",val:sig.swing.low+(sig.swing.high-sig.swing.low)*0.382,color:C.purple},
+          {label:"0.236",val:sig.swing.low+(sig.swing.high-sig.swing.low)*0.236,color:C.purple},
+          {label:"Swing Low",val:sig.swing.low,color:C.green}
+        ].map(function(f,i){
+          var dp=getPipDecimals(selectedPair.symbol);
+          var isPrice=price&&Math.abs(price-f.val)<(sig.swing.high-sig.swing.low)*0.02;
+          return React.createElement("div",{key:i,style:{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"11px 18px",borderBottom:i<6?"1px solid "+C.border:"none",background:isPrice?C.goldGlow:"transparent"}},
+            React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8}},
+              React.createElement("div",{style:{width:3,height:16,borderRadius:2,background:f.color}}),
+              React.createElement("span",{style:{fontSize:12,fontWeight:isPrice?700:500,color:isPrice?C.gold:C.text2}},f.label+(isPrice?" ← PRIX ACTUEL":""))),
+            React.createElement("span",{style:{fontSize:13,fontWeight:700,color:f.color}},f.val.toFixed(dp)));
+        }))),
+
+    // TAB CHART
+    activeTab==="chart"&&React.createElement("div",{style:{padding:"0 16px",animation:"fadeIn 0.3s ease"}},
+      React.createElement("div",{style:{background:C.card,border:"1px solid "+C.border,borderRadius:16,overflow:"hidden"}},
+        React.createElement("div",{style:{padding:"14px 16px",borderBottom:"1px solid "+C.border,display:"flex",justifyContent:"space-between",alignItems:"center"}},
+          React.createElement("div",null,
+            React.createElement("div",{style:{fontSize:13,fontWeight:700,color:C.text}},selectedPair.symbol+" · 4H"),
+            React.createElement("div",{style:{fontSize:10,color:C.text2,marginTop:2}},"Fibonacci + EMA 20/50")),
+          React.createElement("div",{style:{display:"flex",gap:8}},
+            React.createElement("div",{style:{display:"flex",alignItems:"center",gap:4}},React.createElement("div",{style:{width:10,height:2,background:C.gold,borderRadius:1}}),React.createElement("span",{style:{fontSize:9,color:C.text2}},"EMA20")),
+            React.createElement("div",{style:{display:"flex",alignItems:"center",gap:4}},React.createElement("div",{style:{width:10,height:2,background:C.blue,borderRadius:1}}),React.createElement("span",{style:{fontSize:9,color:C.text2}},"EMA50")),
+            React.createElement("div",{style:{display:"flex",alignItems:"center",gap:4}},React.createElement("div",{style:{width:10,height:2,background:C.purple,borderRadius:1}}),React.createElement("span",{style:{fontSize:9,color:C.text2}},"FIB")))),
+        React.createElement("div",{style:{padding:8}},
+          React.createElement(MiniChart,{candles:chartData.candles,ema20:chartData.ema20,ema50:chartData.ema50,swing:chartData.swing})))),
+
+    // BOTTOM BAR
+    React.createElement("div",{style:{position:"fixed",bottom:0,left:0,right:0,background:C.card,borderTop:"1px solid "+C.border,padding:"12px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",zIndex:50}},
+      React.createElement("button",{onClick:function(){sendTG("Test GoldSignals PRO OK");alert("Test envoye !");},style:{background:C.blueSoft,border:"1px solid "+C.blue+"30",borderRadius:10,color:C.blue,fontSize:11,padding:"10px 16px",cursor:"pointer",fontWeight:700,letterSpacing:0.5}},"📲 TEST"),
+      React.createElement("div",{style:{fontSize:11,fontWeight:800,color:C.text2,letterSpacing:1}},"GOLDSIGNALS PRO"),
+      React.createElement("button",{onClick:function(){localStorage.removeItem("td_key");setApiKey("");setLaunched(false);},style:{background:C.card2,border:"1px solid "+C.border,borderRadius:10,color:C.text3,fontSize:11,padding:"10px 16px",cursor:"pointer"}},"⚙ CLE")));
 }
 
 ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(App));
