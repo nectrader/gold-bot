@@ -40,7 +40,39 @@ var lastNotif = "";
 var prevPlanDir = null;
 var wsConn = null;
 var refreshTimer = null;
+var scanTimer = null;
 var scanRunning = false;
+
+// ── CREDIT MANAGER ──
+// Budget : 800 crédits/jour
+// Plan : refresh toutes les 3min (480/jour) + scan toutes les 4h (90/jour) = 570/jour
+var CREDIT_LIMIT = 800;
+var CREDIT_KEY = "td_credits";
+var CREDIT_DATE_KEY = "td_credit_date";
+var REFRESH_INTERVAL = 3 * 60 * 1000;   // 3 minutes
+var SCAN_INTERVAL = 4 * 60 * 60 * 1000; // 4 heures
+
+function getTodayStr(){return new Date().toISOString().slice(0,10);}
+function getCreditsUsed(){
+  var d=localStorage.getItem(CREDIT_DATE_KEY);
+  if(d!==getTodayStr()){localStorage.setItem(CREDIT_DATE_KEY,getTodayStr());localStorage.setItem(CREDIT_KEY,"0");return 0;}
+  return parseInt(localStorage.getItem(CREDIT_KEY)||"0");
+}
+function addCredits(n){
+  var used=getCreditsUsed()+n;
+  localStorage.setItem(CREDIT_KEY,String(used));
+  updateCreditDisplay();
+  return used;
+}
+function canUseCredits(n){return getCreditsUsed()+n<=CREDIT_LIMIT;}
+function updateCreditDisplay(){
+  var el=document.getElementById("credit-display");
+  if(!el)return;
+  var used=getCreditsUsed();
+  var pct=Math.min(100,Math.round(used/CREDIT_LIMIT*100));
+  var col=pct>85?"#ff4d6d":pct>60?"#f5a623":"#00d4aa";
+  el.innerHTML='<span style="color:'+col+';font-weight:700">'+used+'</span><span style="color:#3a3a5a">/'+CREDIT_LIMIT+'</span>';
+}
 
 var PAIRS = [
   {symbol:"XAU/USD",emoji:"🥇",cat:"Metaux"},
@@ -105,27 +137,40 @@ function buildPlan(price,atrVal,sig,sym){
   var d=getDP(sym),buy=sig.buy;
   var sw=sig.swing,rng=sw.high-sw.low;
   var entry=parseFloat(price.toFixed(d));
+
+  // ── Stop Loss basé sur Fibonacci + ATR ──
   var f382=buy?sw.low+rng*0.382:sw.high-rng*0.382;
   var f618=buy?sw.low+rng*0.618:sw.high-rng*0.618;
   var slBase=buy?Math.min(f382,f618)-atrVal*0.2:Math.max(f382,f618)+atrVal*0.2;
   var sl=parseFloat(slBase.toFixed(d));
+
+  // Pips SL = distance en dollars / taille d'un pip
   var slP=distToPips(Math.abs(entry-sl),sym);
+
+  // Limites min/max pips SL selon l'actif
   var minSlP=sym.indexOf("XAU")>=0?80:sym.indexOf("BTC")>=0?500:25;
   var maxSlP=sym.indexOf("XAU")>=0?300:sym.indexOf("BTC")>=0?3000:80;
   if(slP<minSlP){slP=minSlP;sl=parseFloat((buy?entry-pipsToDist(slP,sym):entry+pipsToDist(slP,sym)).toFixed(d));}
   if(slP>maxSlP){slP=maxSlP;sl=parseFloat((buy?entry-pipsToDist(slP,sym):entry+pipsToDist(slP,sym)).toFixed(d));}
+
+  // ── Take Profits via extensions Fibonacci ──
   var t1=parseFloat((buy?sw.high+rng*0.272:sw.low-rng*0.272).toFixed(d));
   var t2=parseFloat((buy?sw.high+rng*0.618:sw.low-rng*0.618).toFixed(d));
   var t3=parseFloat((buy?sw.high+rng*1.618:sw.low-rng*1.618).toFixed(d));
+
   var t1p=distToPips(Math.abs(t1-entry),sym);
   var t2p=distToPips(Math.abs(t2-entry),sym);
   var t3p=distToPips(Math.abs(t3-entry),sym);
+
+  // Fallback si TP trop proche du SL
   if(t1p<slP){t1p=slP;t1=parseFloat((buy?entry+pipsToDist(t1p,sym):entry-pipsToDist(t1p,sym)).toFixed(d));}
   if(t2p<slP*2){t2p=Math.round(slP*3);t2=parseFloat((buy?entry+pipsToDist(t2p,sym):entry-pipsToDist(t2p,sym)).toFixed(d));}
   if(t3p<slP*4){t3p=Math.round(slP*6);t3=parseFloat((buy?entry+pipsToDist(t3p,sym):entry-pipsToDist(t3p,sym)).toFixed(d));}
+
   var rr1=(t1p/slP).toFixed(1);
   var rr2=(t2p/slP).toFixed(1);
   var rr3=Math.round(t3p/slP);
+
   return{buy:buy,sym:sym,entry:entry.toFixed(d),sl:sl.toFixed(d),t1:t1.toFixed(d),t2:t2.toFixed(d),t3:t3.toFixed(d),slP:slP,t1p:t1p,t2p:t2p,t3p:t3p,rr1:rr1,rr2:rr2,rr3:rr3};
 }
 
@@ -142,9 +187,11 @@ function notifyTelegram(pl,sig,close){
 }
 
 async function fetchCandles(sym,interval,size){
+  if(!canUseCredits(1))throw new Error("Limite de "+CREDIT_LIMIT+" credits/jour atteinte. Reessayez demain.");
   var r=await fetch("https://api.twelvedata.com/time_series?symbol="+sym+"&interval="+interval+"&outputsize="+size+"&apikey="+apiKey);
   var d=await r.json();
   if(d.status==="error")throw new Error(d.message);
+  addCredits(1);
   return d.values.reverse().map(function(c){return{o:parseFloat(c.open),h:parseFloat(c.high),l:parseFloat(c.low),c:parseFloat(c.close)};});
 }
 
@@ -152,8 +199,10 @@ async function refresh(){
   try{
     setError("");
     var sym=selectedPair.symbol;
+    // Week-end : seul BTC/USD est autorisé
     if(isWeekend()&&isForexPair(sym)){
       setError("⚠️ Marché fermé le week-end. Seul BTC/USD est disponible.");
+      // Auto-bascule sur BTC/USD
       if(sym!=="BTC/USD"){
         var btc=PAIRS.find(function(p){return p.symbol==="BTC/USD";});
         if(btc){selectedPair=btc;localStorage.setItem("sp",JSON.stringify(btc));lastNotif="";prevPlanDir=null;currentPrice=null;currentChange=null;currentSig=null;currentPlan=null;startWS();}
@@ -210,12 +259,8 @@ async function scanAllPairs(){
 }
 
 function startWS(){
-  if(wsConn){wsConn.close();wsConn=null;}
-  var w=new WebSocket("wss://ws.twelvedata.com/v1/quotes/price?apikey="+apiKey);
-  w.onopen=function(){w.send(JSON.stringify({action:"subscribe",params:{symbols:selectedPair.symbol}}));};
-  w.onmessage=function(e){try{var d=JSON.parse(e.data);if(d.event==="price"&&d.symbol===selectedPair.symbol&&d.price){currentPrice=parseFloat(d.price);lastUpdate=new Date().toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit",second:"2-digit"});document.getElementById("price-display").textContent=fmtPrice(currentPrice,selectedPair.symbol);document.getElementById("last-update").textContent=lastUpdate;}}catch(x){}};
-  w.onclose=function(){setTimeout(startWS,5000);};
-  wsConn=w;
+  // WebSocket désactivé pour économiser les crédits
+  // Le prix est mis à jour via refresh() toutes les 3 minutes
 }
 
 // ── RENDER ──
@@ -302,13 +347,15 @@ function renderSignaux(){
   var cont=document.getElementById("tab-content");
   if(!cont)return;
   var weekend=isWeekend();
+  // Toujours afficher toutes les paires, mais le week-end les Forex/XAU sont EN PAUSE
+  var activePairs=getActivePairs(); // pour le scan
   var loaded=Object.keys(sigList).length;
   var html='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">'+
-    '<div style="font-size:11px;font-weight:700;color:#6a6a8a;letter-spacing:0.8px">'+(weekend?"🌙 WEEK-END · Reprise dim. 23h":loaded+"/"+PAIRS.length+" PAIRES")+'</div>'+
+    '<div style="font-size:11px;font-weight:700;color:#6a6a8a;letter-spacing:0.8px">'+(weekend?'🌙 WEEK-END · Reprise dim. 23h':loaded+'/'+PAIRS.length+' PAIRES')+' </div>'+
     (!weekend&&loaded<PAIRS.length?'<div style="display:flex;align-items:center;gap:6px"><div class="spinner" style="width:14px;height:14px;border-width:2px"></div><span style="font-size:10px;color:#3a3a5a">Scan...</span></div>':'')+
   '</div>';
   if(weekend){
-    html+='<div style="background:rgba(245,166,35,0.08);border:1px solid rgba(245,166,35,0.3);border-radius:12px;padding:12px 14px;margin-bottom:12px;font-size:12px;color:#f5a623;font-weight:600">🌙 Marches Forex et XAU/USD fermes — Analyse en pause jusqu\'au dimanche 23h00.</div>';
+    html+='<div style="background:rgba(245,166,35,0.08);border:1px solid rgba(245,166,35,0.3);border-radius:12px;padding:12px 14px;margin-bottom:12px;font-size:12px;color:#f5a623;font-weight:600">🌙 Marchés Forex et XAU/USD fermés — Analyse en pause jusqu\'au dimanche 23h00.</div>';
   }
   PAIRS.forEach(function(pr){
     var paused=weekend&&isForexPair(pr.symbol);
@@ -329,7 +376,7 @@ function renderSignaux(){
         '</div>'+
       '</div>'+
       '<div style="text-align:right">'+
-        '<div style="font-size:13px;font-weight:800;color:'+col+';background:'+(dir==="buy"?"rgba(0,212,170,0.08)":dir==="sell"?"rgba(255,77,109,0.08)":dir==="paused"?"rgba(245,166,35,0.08)":"transparent")+';padding:'+(dir!=="loading"&&dir!=="neutral"?"5px 10px":"0")+';border-radius:8px">'+label+'</div>'+
+        '<div style="font-size:'+(dir==="loading"?11:13)+'px;font-weight:800;color:'+col+';background:'+(dir==="buy"?"rgba(0,212,170,0.08)":dir==="sell"?"rgba(255,77,109,0.08)":dir==="paused"?"rgba(245,166,35,0.08)":"transparent")+';padding:'+(dir!=="loading"&&dir!=="neutral"?"5px 10px":"0")+';border-radius:8px">'+label+'</div>'+
         (item&&item.plan&&!paused?'<div style="font-size:10px;color:#6a6a8a;margin-top:4px">R/R 1:'+item.plan.rr3+'</div>':'')+
       '</div>'+
     '</div>';
@@ -339,7 +386,7 @@ function renderSignaux(){
 
 function renderAnalyse(){
   var cont=document.getElementById("tab-content");
-  if(!cont||!currentSig){cont.innerHTML='<div style="text-align:center;padding:40px;color:#6a6a8a">En attente de donnees...</div>';return;}
+  if(!cont||!currentSig){cont.innerHTML='<div style="text-align:center;padding:40px;color:#6a6a8a">Chargement...</div>';return;}
   var sg=currentSig;
   var sw=sg.swing;
   var d=getDP(selectedPair.symbol);
@@ -363,7 +410,7 @@ function renderAnalyse(){
       fibs.map(function(f,i){
         var isCur=currentPrice&&Math.abs(currentPrice-f[1])<rng*0.025;
         return '<div style="display:flex;justify-content:space-between;padding:11px 18px;border-bottom:'+(i<5?"1px solid #1e1e35":"none")+';background:'+(isCur?"rgba(245,166,35,0.05)":"transparent")+'">'+
-          '<span style="font-size:12px;font-weight:'+(isCur?700:400)+';color:'+(isCur?"#f5a623":"#6a6a8a")+'">'+f[0]+(isCur?" ←":"")+'</span>'+
+          '<span style="font-size:12px;font-weight:'+(isCur?700:400)+';color:'+(isCur?"#f5a623":"#6a6a8a")+'">'+f[0]+(isCur?" <-":"")+' </span>'+
           '<span style="font-size:13px;font-weight:700;color:'+f[2]+'">'+f[1].toFixed(d)+'</span>'+
         '</div>';
       }).join("")+
@@ -418,7 +465,7 @@ function drawChart(){
 }
 
 function selectPairFromList(sym){
-  if(isWeekend()&&isForexPair(sym)){alert("🌙 Marche ferme le week-end.\nSeul BTC/USD est disponible.");return;}
+  if(isWeekend()&&isForexPair(sym)){alert("🌙 Marché fermé le week-end.\nSeul BTC/USD est disponible.");return;}
   var p=PAIRS.find(function(x){return x.symbol===sym;});
   if(p){selectedPair=p;localStorage.setItem("sp",JSON.stringify(p));lastNotif="";prevPlanDir=null;currentPrice=null;currentChange=null;currentSig=null;currentPlan=null;switchTab("trade");showMainApp();refresh();startWS();}
 }
@@ -459,16 +506,19 @@ function launchApp(){
   apiKey=k;localStorage.setItem("td_key",k);
   showMainApp();
   refresh();
-  startWS();
-  setTimeout(scanAllPairs,3000);
-  refreshTimer=setInterval(refresh,90000);
+  // Refresh toutes les 3min = 480 crédits/jour
+  if(refreshTimer)clearInterval(refreshTimer);
+  refreshTimer=setInterval(refresh,REFRESH_INTERVAL);
+  // Scan toutes les 4h = 90 crédits/jour (15 paires × 6 fois)
+  if(scanTimer)clearInterval(scanTimer);
+  setTimeout(function(){scanAllPairs();scanTimer=setInterval(scanAllPairs,SCAN_INTERVAL);},5000);
 }
 
 function showMainApp(){
   document.getElementById("app").innerHTML=
     '<div id="main-wrap" style="background:#080810;min-height:100vh;padding-bottom:72px">'+
       '<div id="error-msg" style="display:none;margin:10px 16px;background:rgba(255,77,109,0.08);border:1px solid rgba(255,77,109,0.3);border-radius:12px;padding:12px 14px;font-size:12px;color:#ff4d6d"></div>'+
-      '<div id="weekend-banner" style="display:none;margin:10px 16px;background:rgba(245,166,35,0.08);border:1px solid rgba(245,166,35,0.3);border-radius:12px;padding:12px 14px;font-size:12px;color:#f5a623;font-weight:600">🌙 Week-end · Marches Forex et XAU/USD fermes · Seul BTC/USD est analyse</div>'+
+      '<div id="weekend-banner" style="display:none;margin:10px 16px;background:rgba(245,166,35,0.08);border:1px solid rgba(245,166,35,0.3);border-radius:12px;padding:12px 14px;font-size:12px;color:#f5a623;font-weight:600">🌙 Week-end · Marchés Forex &amp; XAU/USD fermés · Seul BTC/USD est analysé</div>'+
       '<div style="padding:14px 16px;border-bottom:1px solid #1e1e35;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:#080810;z-index:50">'+
         '<button onclick="showPairSelector()" style="display:flex;align-items:center;gap:10px;background:#0e0e1a;border:1px solid #1e1e35;border-radius:12px;padding:10px 14px">'+
           '<div style="width:34px;height:34px;border-radius:8px;background:#141422;display:flex;align-items:center;justify-content:center;font-size:18px" id="pair-emoji">'+selectedPair.emoji+'</div>'+
@@ -506,12 +556,13 @@ function showMainApp(){
       '<div id="tab-content" style="padding:0 16px"></div>'+
       '<div style="position:fixed;bottom:0;left:0;right:0;background:#0e0e1a;border-top:1px solid #1e1e35;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;z-index:50">'+
         '<button onclick="sendTG(\'Test OK\');alert(\'Test envoye!\');" style="background:rgba(77,159,255,0.08);border:1px solid rgba(77,159,255,0.3);border-radius:10px;color:#4d9fff;font-size:11px;padding:10px 16px;font-weight:700">📲 TEST</button>'+
-        '<div style="font-size:11px;font-weight:800;color:#6a6a8a;letter-spacing:1px">GOLDSIGNALS PRO</div>'+
+        '<div style="text-align:center"><div style="font-size:9px;color:#3a3a5a;margin-bottom:2px">CREDITS/JOUR</div><div id="credit-display" style="font-size:11px">0/800</div></div>'+
         '<button onclick="localStorage.removeItem(\'td_key\');location.reload();" style="background:#141422;border:1px solid #1e1e35;border-radius:10px;color:#3a3a5a;font-size:11px;padding:10px 14px">⚙</button>'+
       '</div>'+
     '</div>';
   renderTrade();
   showWeekendBanner();
+  updateCreditDisplay();
 }
 
 function showPairSelector(){
@@ -526,7 +577,7 @@ function showPairSelector(){
       return '<div onclick="selectPairFromList(\''+p.symbol+'\')" style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:'+(active?"rgba(245,166,35,0.08)":"#0e0e1a")+';border:1px solid '+(active?"rgba(245,166,35,0.6)":"#1e1e35")+';border-radius:12px;margin-bottom:8px;opacity:'+(closed?0.35:1)+'">'+
         '<div style="display:flex;align-items:center;gap:12px">'+
           '<div style="width:38px;height:38px;border-radius:9px;background:#141422;display:flex;align-items:center;justify-content:center;font-size:20px">'+p.emoji+'</div>'+
-          '<div><div style="font-size:14px;font-weight:700;color:'+(active?"#f5a623":"#e8e8f0")+'">'+p.symbol+'</div>'+(closed?'<div style="font-size:10px;color:#f5a623;margin-top:2px">🌙 Ferme week-end</div>':'')+' </div>'+
+          '<div><div style="font-size:14px;font-weight:700;color:'+(active?"#f5a623":"#e8e8f0")+'">'+p.symbol+'</div>'+(closed?'<div style="font-size:10px;color:#f5a623;margin-top:2px">🌙 Fermé week-end</div>':'')+' </div>'+
         '</div>'+
         (active?'<div style="width:8px;height:8px;border-radius:50%;background:#f5a623"></div>':'')+
       '</div>';
@@ -560,9 +611,10 @@ function showPairSelector(){
 if(apiKey){
   showMainApp();
   refresh();
-  startWS();
-  setTimeout(scanAllPairs,3000);
-  refreshTimer=setInterval(refresh,90000);
+  if(refreshTimer)clearInterval(refreshTimer);
+  refreshTimer=setInterval(refresh,REFRESH_INTERVAL);
+  if(scanTimer)clearInterval(scanTimer);
+  setTimeout(function(){scanAllPairs();scanTimer=setInterval(scanAllPairs,SCAN_INTERVAL);},5000);
 }else{
   showSetup();
 }
