@@ -460,7 +460,7 @@ function showSetup(){
     '<div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;background:#080810">'+
       '<div style="font-size:48px;margin-bottom:16px">📊</div>'+
       '<div style="font-size:26px;font-weight:800;color:#e8e8f0;letter-spacing:1px;margin-bottom:6px">GOLDSIGNALS PRO</div>'+
-      '<div style="font-size:13px;color:#6a6a8a;margin-bottom:40px">Fibonacci · Sniper · Telegram</div>'+
+      '<div style="font-size:13px;color:#6a6a8a;margin-bottom:40px">Fibonacci · Telegram</div>'+
       '<div style="width:100%;max-width:360px;background:#0e0e1a;border:1px solid #1e1e35;border-radius:20px;padding:28px 24px">'+
         '<div style="font-size:11px;font-weight:700;color:#6a6a8a;margin-bottom:8px;text-transform:uppercase;letter-spacing:1px">Cle API Twelvedata</div>'+
         '<input id="api-input" placeholder="Colle ta cle ici..." style="margin-bottom:10px"/>'+
@@ -530,6 +530,8 @@ function showMainApp(){
   renderTrade();
   showWeekendBanner();
 }
+
+function showPairSelector(){
   var cats=["Metaux","Crypto","Majeurs","Croisees"];
   var activeCat=cats[0];
   function renderList(){
